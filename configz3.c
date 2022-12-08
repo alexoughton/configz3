@@ -253,7 +253,6 @@ struct ConfigDev *cd;
         AddMemList(cd->cd_BoardSize,MEMF_FAST|MEMF_PUBLIC,10,cd->cd_BoardAddr,memname);
     }
     AddConfigDev(cd);
-    exit(0); // Stop after first PIC
 }
 /* ====================================================================== */
 /* This is the main program. */
@@ -273,9 +272,14 @@ char *argv[];
         case 'V': verbose = TRUE; break;
     }
 
-    // printf("Making TF card go away...\n");
-    // UBYTE *bytebase = (UBYTE *)(0x00e80048);
-    // (*(bytebase)) = 0xFF;
+    printf("Sending SHUTUP to TF card\n");
+    UBYTE *bytebase = (UBYTE *)(0x00e8004C);
+    (*(bytebase)) = 0xFF;
+
+    printf("Manually adding TF card to Memory list\n");
+    char *memname;
+    strcpy(memname = (char *)AllocMem(20L,MEMF_CLEAR),"Zorro III Memory");
+    AddMemList(0x4000000,MEMF_FAST|MEMF_PUBLIC,10,0x40000000,memname);
 
     while (cd = FindZ3Board()) ConfigZ3Board(cd);
     if (!anyone) PRVB("No PICs left to configure\n");
