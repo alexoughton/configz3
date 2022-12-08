@@ -171,8 +171,8 @@ struct ConfigDev *cd;
     nybreg[1] = ((bytereg[0] & 0xf0));
     nybreg[2] = ((bytereg[1] & 0x0f)<<4);
     nybreg[3] = ((bytereg[1] & 0xf0));
-    bytebase = (UBYTE *)(base + 22);
-    wordbase = (UWORD *)(base + 22);
+    bytebase = (UBYTE *)(base + 0x22);
+    wordbase = (UWORD *)(base + 0x22);
     if (base == (UWORD *)E_EXPANSIONBASE) {
         printf("DEBUG: Doing Z2-style config write\n");
         printf("DEBUG: writing $%x\n",(bytebase+0x002));
