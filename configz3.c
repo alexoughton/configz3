@@ -46,8 +46,9 @@ static SubSize[16] = {
 #define PRVB(x)if (verbose) { printf(x); }
 static BOOL verbose = TRUE;
 static BOOL anyone = FALSE;
+static BOOL firstcard = TRUE;
 struct ExpansionBase *ExpansionBase;
-static ULONG Z3Space = 0x40000000L;   // Was 0x10000000L
+static ULONG Z3Space = 0x40000000L;   // Alex edit. This was 0x10000000L. Update to match KS 2+ behavior.
 /* ====================================================================== */
 /* These functions are involved in finding a Zorro III board. */
 /* This function reads the logical value stored at the given Zorro III
@@ -62,7 +63,7 @@ WORD reg;
     if (base == (WORD *)E_EXPANSIONBASE) {
         base += (reg>>1);
         result = ((*base++)&0xf000)>>8;
-        result |= ((*base)&0xf000)>>12; // Alex edit "|=" to look like below
+        result |= ((*base)&0xf000)>>12; // Alex edit - Correct typo from PDF. Not properly combining bytes.
     } else {
         Z3base = (ULONG *)(base+(reg>>1));
         result = ((*Z3base)&0xf0000000)>>24;
@@ -163,8 +164,6 @@ struct ConfigDev *cd;
     UBYTE nybreg[4],bytereg[2],*bytebase;
     UWORD wordreg,i,*wordbase;
     wordreg = (((ULONG)cd->cd_BoardAddr)>>16);
-    printf("DEBUG: base: $%x\n",base);
-    printf("DEBUG: wordreg: $%x\n",wordreg);
     bytereg[0] = (UBYTE)(wordreg & 0x00ff);
     bytereg[1] = (UBYTE)(wordreg >> 8);
     nybreg[0] = ((bytereg[0] & 0x0f)<<4);
@@ -174,24 +173,14 @@ struct ConfigDev *cd;
     bytebase = (UBYTE *)(base + 0x22);
     wordbase = (UWORD *)(base + 0x22);
     if (base == (UWORD *)E_EXPANSIONBASE) {
-        printf("DEBUG: Doing Z2-style config write\n");
-        printf("DEBUG: writing $%x\n",(bytebase+0x002));
         (*(bytebase+0x002)) = nybreg[2];
-        printf("DEBUG: writing $%x\n",(bytebase+0x000));
         (*(bytebase+0x000)) = bytereg[1];
-        printf("DEBUG: writing $%x\n",(bytebase+0x006));
         (*(bytebase+0x006)) = nybreg[1];
-        printf("DEBUG: writing $%x\n",(bytebase+0x004));
         (*(bytebase+0x004)) = bytereg[0];
     } else {
-        printf("DEBUG: Doing Z3-style config write\n");
-        printf("DEBUG: writing $%x\n",(bytebase+0x104));
         (*(bytebase+0x104)) = nybreg[0];
-        printf("DEBUG: writing $%x\n",(bytebase+0x004));
         (*(bytebase+0x004)) = bytereg[0];
-        printf("DEBUG: writing $%x\n",(bytebase+0x100));
         (*(bytebase+0x100)) = nybreg[2];
-        printf("DEBUG: writing $%x\n",(bytebase+0x000));
         (*(wordbase+0x000)) = wordreg;
     }
 }
@@ -242,7 +231,16 @@ struct ConfigDev *cd;
         printf(" SIZE: AUTOMATIC => \n");
     }
     /* Now, configure the board. */
-    WriteCfgAddr(base,cd);
+    if (firstcard) {
+        // If this is the first card (i.e. the TF), send SHUTUP instead of properly configuring
+        UBYTE *bytebase = (UBYTE *)(0x00e8004C);
+        (*(bytebase)) = 0xFF;
+        firstcard = FALSE;
+    } 
+    else
+    {
+        WriteCfgAddr(base,cd);
+    }
 
     if (!cd->cd_BoardSize) {
         AutoSizeBoard(cd);
@@ -272,14 +270,14 @@ char *argv[];
         case 'V': verbose = TRUE; break;
     }
 
-    printf("Sending SHUTUP to TF card\n");
-    UBYTE *bytebase = (UBYTE *)(0x00e8004C);
-    (*(bytebase)) = 0xFF;
+    // printf("Sending SHUTUP to TF card\n");
+    // UBYTE *bytebase = (UBYTE *)(0x00e8004C);
+    // (*(bytebase)) = 0xFF;
 
-    printf("Manually adding TF card to Memory list\n");
-    char *memname;
-    strcpy(memname = (char *)AllocMem(20L,MEMF_CLEAR),"Zorro III Memory");
-    AddMemList(0x4000000,MEMF_FAST|MEMF_PUBLIC,10,0x40000000,memname);
+    // printf("Manually adding TF card to Memory list\n");
+    // char *memname;
+    // strcpy(memname = (char *)AllocMem(20L,MEMF_CLEAR),"Zorro III Memory");
+    // AddMemList(0x4000000,MEMF_FAST|MEMF_PUBLIC,10,0x40000000,memname);
 
     while (cd = FindZ3Board()) ConfigZ3Board(cd);
     if (!anyone) PRVB("No PICs left to configure\n");
